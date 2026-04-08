@@ -1,7 +1,6 @@
 from flask import Flask, jsonify
 from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
-import os
 import logging
 logging.getLogger("azure").setLevel(logging.WARNING)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
@@ -16,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
 GUID = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
+auth_initialized = False
 
 # =========================
 # TOKEN CACHE (PERSISTENT)
@@ -41,9 +41,18 @@ credential = DeviceCodeCredential(
     cache_persistence_options=cache_options
 )
 
-app.logger.info("Triggering initial authentication...")
-credential.get_token(SCOPE)  # triggers device login once
-app.logger.info("Running the app...")
+# app.logger.info("Triggering initial authentication...")
+# credential.get_token(SCOPE)  # triggers device login once
+# app.logger.info("Running the app...")
+
+def init_auth():
+    global auth_initialized
+    if not auth_initialized:
+        app.logger.info("Triggering authentication...")
+        credential.get_token(SCOPE)
+        auth_initialized = True
+
+init_auth()
 # =========================
 # GET AUTH HEADERS (AUTO CACHE + REFRESH)
 # =========================
