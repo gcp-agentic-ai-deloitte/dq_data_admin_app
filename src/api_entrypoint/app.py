@@ -21,7 +21,8 @@ GUID = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
 # TOKEN CACHE (PERSISTENT)
 # =========================
 cache_options = TokenCachePersistenceOptions(
-    name="purview_token_cache"
+    name="purview_token_cache",
+    allow_unencrypted_storage=True 
 )
 
 # =========================
