@@ -11,6 +11,7 @@ GUID = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
 
 # Store login info globally (POC only)
 login_info = {}
+headers = {}
 
 # =========================
 # DEVICE CODE CALLBACK
@@ -18,39 +19,24 @@ login_info = {}
 def device_code_callback(verification_uri, user_code, expires_on):
     global login_info
 
-    # Convert expiry to readable format
-    expiry_readable = datetime.fromtimestamp(expires_on).strftime("%Y-%m-%d %H:%M:%S")
-
     login_info = {
         "verification_uri": verification_uri,
         "user_code": user_code,
         "expires_on_epoch": expires_on,
-        "expires_on_readable": expiry_readable,
-        "message": f"Go to {verification_uri} and enter code {user_code} before {expiry_readable}"
     }
 
 # Create credential
-credential = DeviceCodeCredential(prompt_callback=device_code_callback)
+# credential = DeviceCodeCredential(prompt_callback=device_code_callback)
 
 # =========================
 # LOGIN ROUTE
 # =========================
 @app.route("/login", methods=["GET"])
 def login():
-    global login_info
-
     try:
-        # Reset login info
-        login_info = {}
+        # Create credential
+        DeviceCodeCredential(prompt_callback=device_code_callback)
 
-        # Trigger token call (this invokes callback)
-        try:
-            credential.get_token(SCOPE)
-        except Exception:
-            # Expected because user hasn't authenticated yet
-            pass
-
-        # If callback worked, login_info should now be filled
         if not login_info:
             return jsonify({
                 "error": "Device code not generated",
