@@ -3,21 +3,19 @@ from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
 import os
 import logging
+import sys
 logging.getLogger("azure").setLevel(logging.WARNING)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
 
 
 app = Flask(__name__)
 
-# Enable logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
 
-app.logger.handlers = logging.getLogger().handlers
+app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
-app.logger.propagate = True
+app.logger.propagate = False
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
