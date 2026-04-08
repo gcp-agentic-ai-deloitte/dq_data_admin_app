@@ -1,46 +1,133 @@
+# from flask import Flask, jsonify
+# from azure.identity import DeviceCodeCredential
+# import requests
+
+# app = Flask(__name__)
+
+# PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
+# SCOPE = "https://purview.azure.net/.default"
+# guid = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
+# # =========================
+# # DEVICE CODE CALLBACK
+# # =========================
+# def device_code_callback(verification_uri, user_code, expires_on):
+#     print("\n🔐 LOGIN REQUIRED")
+#     print(f"Go to: {verification_uri}")
+#     print(f"Enter code: {user_code}")
+#     print(f"Expires at: {expires_on}")
+#     print("=========================\n")
+
+# # Create credential (global so token can be reused)
+# credential = DeviceCodeCredential(prompt_callback=device_code_callback)
+
+# # =========================
+# # GET TOKEN
+# # =========================
+# def get_access_token():
+#     token = credential.get_token(SCOPE)
+#     return token.token
+
+# # =========================
+# # ROUTE
+# # =========================
+# @app.route("/purview", methods=["GET"])
+# def call_purview():
+#     try:
+#         token = get_access_token()
+
+#         headers = {
+#             "Authorization": f"Bearer {token}",
+#             "Content-Type": "application/json"
+#         }
+
+#         url = f"{PURVIEW_ENDPOINT}/datamap/api/atlas/v2/entity/guid/{guid}"
+
+#         response = requests.get(url, headers=headers)
+
+#         return jsonify({
+#             "status": response.status_code,
+#             "data": response.json()
+#         })
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+# # =========================
+# # RUN
+# # =========================
+# if __name__ == "__main__":
+#     app.run(debug=True)
+
+
 from flask import Flask, jsonify
 from azure.identity import DeviceCodeCredential
 import requests
+from datetime import datetime
 
 app = Flask(__name__)
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
-guid = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
+GUID = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
+
+# Store login info globally (POC only)
+login_info = {}
+
 # =========================
 # DEVICE CODE CALLBACK
 # =========================
 def device_code_callback(verification_uri, user_code, expires_on):
-    print("\n🔐 LOGIN REQUIRED")
-    print(f"Go to: {verification_uri}")
-    print(f"Enter code: {user_code}")
-    print(f"Expires at: {expires_on}")
-    print("=========================\n")
+    global login_info
 
-# Create credential (global so token can be reused)
+    # Convert expiry to readable format
+    expiry_readable = datetime.fromtimestamp(expires_on).strftime("%Y-%m-%d %H:%M:%S")
+
+    login_info = {
+        "verification_uri": verification_uri,
+        "user_code": user_code,
+        "expires_on_epoch": expires_on,
+        "expires_on_readable": expiry_readable,
+        "message": f"Go to {verification_uri} and enter code {user_code} before {expiry_readable}"
+    }
+
+# Create credential
 credential = DeviceCodeCredential(prompt_callback=device_code_callback)
 
 # =========================
-# GET TOKEN
+# LOGIN ROUTE
 # =========================
-def get_access_token():
-    token = credential.get_token(SCOPE)
-    return token.token
+@app.route("/login", methods=["GET"])
+def login():
+    try:
+        credential.get_token(SCOPE)
+
+        return jsonify({
+            "status": "pending_authentication",
+            "login": login_info
+        })
+
+    except Exception:
+        # This still returns login info immediately
+        return jsonify({
+            "status": "login_initiated",
+            "login": login_info,
+            "note": "Complete login in browser, then call /purview"
+        })
 
 # =========================
-# ROUTE
+# MAIN API
 # =========================
 @app.route("/purview", methods=["GET"])
 def call_purview():
     try:
-        token = get_access_token()
+        token = credential.get_token(SCOPE).token
 
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
 
-        url = f"{PURVIEW_ENDPOINT}/datamap/api/atlas/v2/entity/guid/{guid}"
+        url = f"{PURVIEW_ENDPOINT}/datamap/api/atlas/v2/entity/guid/{GUID}"
 
         response = requests.get(url, headers=headers)
 
@@ -50,7 +137,18 @@ def call_purview():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "message": "Authenticate first using /login",
+            "login_hint": login_info
+        }), 500
+
+# =========================
+# HEALTH CHECK
+# =========================
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "API is running"})
 
 # =========================
 # RUN
