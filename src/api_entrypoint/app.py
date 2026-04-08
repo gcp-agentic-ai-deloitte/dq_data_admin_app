@@ -14,7 +14,29 @@ logging.basicConfig(level=logging.INFO)
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
-GUID = "e1307a0a-2872-42ee-b9b3-b1f6f6f60000"
+
+
+businessDomainId = "17c856d9-01d1-4ed5-aa73-f3bdecabdd93"
+businessDomainName = "Cybersecurity - Foundational"
+dataProductId = "79b00c61-b8c6-417d-b269-b49d703b4499"
+dataProductName = "Cybersecurity - Consumption Layer"
+asset_id = "d762170f-dfc8-4c10-aede-a49021bda745"
+asset_name = "gld_cybersec_fact_machine_vulnerabilities_snapshot"
+
+
+
+dimension_thresholds = {
+    "Completeness": 0.80,
+    "Uniqueness": 0.95,
+    "Conformity": 0.90,
+    "Consistency": 0.85,
+    "Accuracy": 0.92,
+    "Timeliness": 0.88
+}
+
+dq_df = []
+
+
 auth_initialized = False
 
 # =========================
@@ -70,7 +92,7 @@ def get_headers():
 @app.route("/purview", methods=["GET"])
 def call_purview():
     try:
-        url = f"{PURVIEW_ENDPOINT}/datamap/api/atlas/v2/entity/guid/{GUID}"
+        url = f"{PURVIEW_ENDPOINT}/datagovernance/quality/business-domains/{businessDomainId}/data-products/{dataProductId}/data-assets/{asset_id}/rules?api-version=2025-09-01-preview"
 
         response = requests.get(url, headers=get_headers())
 
@@ -79,10 +101,31 @@ def call_purview():
             app.logger.info("Token expired, retrying with fresh token...")
             response = requests.get(url, headers=get_headers())
 
-        return jsonify({
-            "status": response.status_code,
-            "data": response.json()
-        })
+
+        if response.status_code == 200:
+            
+                data = response.json()
+                
+                for blob in data:
+                    dq_data = {
+                        "businessDomainName": businessDomainName,
+                        "dataProductName": dataProductName,
+                        "assetName": asset_name,
+                        "dqName": blob.get("name"),
+                        "id": blob.get("id"),
+                        "description": blob.get("description"),
+                        "SQLcondition": blob.get("typeProperties", {}).get("condition"),
+                        "columns": [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])],
+                        "dimension": blob.get("dimension"),
+                        "threshold": float(dimension_thresholds.get(blob.get("dimension"), 0.75)),
+                        "status": blob.get("status"),
+                        "createdAt": blob.get("createdAt"),
+                        "lastModifiedAt": blob.get("lastModifiedAt")
+                    }
+                    dq_df.append(dq_data)
+  
+
+        return jsonify(dq_df)
 
     except Exception as e:
         return jsonify({
