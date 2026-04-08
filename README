@@ -1,0 +1,8 @@
+--Environment
+    # python -m venv api_link
+    # api_link\Scripts\activate
+    # source api_link/bin/activate
+
+--Pkg
+    # pip install flask
+    # pip install azure-identity
