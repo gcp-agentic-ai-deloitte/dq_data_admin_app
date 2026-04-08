@@ -37,21 +37,34 @@ credential = DeviceCodeCredential(prompt_callback=device_code_callback)
 # =========================
 @app.route("/login", methods=["GET"])
 def login():
+    global login_info
+
     try:
-        credential.get_token(SCOPE)
+        # Reset login info
+        login_info = {}
+
+        # Trigger token call (this invokes callback)
+        try:
+            credential.get_token(SCOPE)
+        except Exception:
+            # Expected because user hasn't authenticated yet
+            pass
+
+        # If callback worked, login_info should now be filled
+        if not login_info:
+            return jsonify({
+                "error": "Device code not generated",
+                "hint": "Callback not triggered. Check logs."
+            }), 500
 
         return jsonify({
-            "status": "pending_authentication",
-            "login": login_info
-        })
-
-    except Exception:
-        # This still returns login info immediately
-        return jsonify({
-            "status": "login_initiated",
+            "status": "login_required",
             "login": login_info,
-            "note": "Complete login in browser, then call /purview"
+            "note": "Go to verification_uri and enter user_code"
         })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # =========================
 # MAIN API
