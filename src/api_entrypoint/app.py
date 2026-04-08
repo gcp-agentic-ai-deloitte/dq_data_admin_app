@@ -10,9 +10,12 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(l
 app = Flask(__name__)
 
 # Enable logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 
-
+app.logger.handlers = logging.getLogger().handlers
 app.logger.setLevel(logging.INFO)
 app.logger.propagate = True
 
