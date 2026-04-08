@@ -3,19 +3,15 @@ from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
 import os
 import logging
-import sys
-logging.getLogger("azure").setLevel(logging.WARNING)
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
+# logging.getLogger("azure").setLevel(logging.WARNING)
+# logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
 
 
 app = Flask(__name__)
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
+# Enable logging
+logging.basicConfig(level=logging.INFO)
 
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
-app.logger.propagate = False
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
@@ -32,9 +28,9 @@ cache_options = TokenCachePersistenceOptions(
 # DEVICE CODE CALLBACK
 # =========================
 def device_code_callback(verification_uri, user_code, expires_on):
-    print(f"Go to: {verification_uri}")
-    print(f"Enter code: {user_code}")
-    print(f"Expires on: {expires_on}")
+    app.logger.info(f"Go to: {verification_uri}")
+    app.logger.info(f"Enter code: {user_code}")
+    app.logger.info(f"Expires on: {expires_on}")
 
 # =========================
 # GLOBAL CREDENTIAL (IMPORTANT)
@@ -47,7 +43,6 @@ credential = DeviceCodeCredential(
 app.logger.info("Triggering initial authentication...")
 credential.get_token(SCOPE)  # triggers device login once
 app.logger.info("Running the app...")
-
 # =========================
 # GET AUTH HEADERS (AUTO CACHE + REFRESH)
 # =========================
