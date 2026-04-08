@@ -5,10 +5,16 @@ import os
 import logging
 logging.getLogger("azure").setLevel(logging.WARNING)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
+
+
 app = Flask(__name__)
 
 # Enable logging
 logging.basicConfig(level=logging.INFO)
+
+
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = True
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
