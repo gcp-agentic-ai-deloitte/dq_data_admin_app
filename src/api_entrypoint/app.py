@@ -3,8 +3,8 @@ from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
 import os
 import logging
-# logging.getLogger("azure").setLevel(logging.WARNING)
-# logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
 
 
 app = Flask(__name__)
