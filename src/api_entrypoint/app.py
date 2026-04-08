@@ -32,9 +32,9 @@ cache_options = TokenCachePersistenceOptions(
 # DEVICE CODE CALLBACK
 # =========================
 def device_code_callback(verification_uri, user_code, expires_on):
-    app.logger.info(f"Go to: {verification_uri}")
-    app.logger.info(f"Enter code: {user_code}")
-    app.logger.info(f"Expires on: {expires_on}")
+    print(f"Go to: {verification_uri}")
+    print(f"Enter code: {user_code}")
+    print(f"Expires on: {expires_on}")
 
 # =========================
 # GLOBAL CREDENTIAL (IMPORTANT)
