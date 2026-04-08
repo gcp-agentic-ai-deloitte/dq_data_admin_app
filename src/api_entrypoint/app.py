@@ -17,16 +17,19 @@ headers = {}
 # DEVICE CODE CALLBACK
 # =========================
 def device_code_callback(verification_uri, user_code, expires_on):
-    global login_info
+    # global login_info
 
-    login_info = {
-        "verification_uri": verification_uri,
-        "user_code": user_code,
-        "expires_on_epoch": expires_on,
-    }
+    # login_info = {
+    #     "verification_uri": verification_uri,
+    #     "user_code": user_code,
+    #     "expires_on_epoch": expires_on,
+    # }
+    app.logger.info(f"verification_uri: {verification_uri}")
+    app.logger.info(f"user_code: {user_code}")
+    app.logger.info(f"expires_on: {expires_on}")
 
 # Create credential
-# credential = DeviceCodeCredential(prompt_callback=device_code_callback)
+credential = DeviceCodeCredential(prompt_callback=device_code_callback)
 
 # =========================
 # LOGIN ROUTE
@@ -35,7 +38,7 @@ def device_code_callback(verification_uri, user_code, expires_on):
 def login():
     try:
         # Create credential
-        DeviceCodeCredential(prompt_callback=device_code_callback)
+        # DeviceCodeCredential(prompt_callback=device_code_callback)
 
         if not login_info:
             return jsonify({
