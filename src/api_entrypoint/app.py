@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify ,request
 from datetime import datetime
 from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
@@ -137,6 +137,14 @@ def call_purview():
             "error": str(e),
             "message": "Authentication or API call failed"
         }), 500
+
+
+@app.route("/dqcheck/update", methods=["POST"])
+def dqcheck_update():
+    data = request.json
+    print(data)  # your updated collection
+    return {"status": "success"}
+
 
 # =========================
 # APP STARTUP
