@@ -24,19 +24,6 @@ asset_id = "d762170f-dfc8-4c10-aede-a49021bda745"
 asset_name = "gld_cybersec_fact_machine_vulnerabilities_snapshot"
 
 
-
-dimension_thresholds = {
-    "Completeness": 0.80,
-    "Uniqueness": 0.95,
-    "Conformity": 0.90,
-    "Consistency": 0.85,
-    "Accuracy": 0.92,
-    "Timeliness": 0.88
-}
-
-dq_df = []
-
-
 auth_initialized = False
 
 # =========================
@@ -46,6 +33,31 @@ cache_options = TokenCachePersistenceOptions(
     name="purview_token_cache",
     allow_unencrypted_storage=True 
 )
+
+
+
+def data_parser(data, businessDomainName, dataProductName, asset_name):
+    dq_df = []
+
+    for blob in data:
+        dq_data = {
+            "businessDomainName": businessDomainName,
+            "dataProductName": dataProductName,
+            "assetName": asset_name,
+            "dqName": blob.get("name"),
+            "id": blob.get("id"),
+            "description": blob.get("description"),
+            "SQLcondition": blob.get("typeProperties", {}).get("condition"),
+            "columns": [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])],
+            "dimension": blob.get("dimension"),
+            "threshold": 80,
+            "status": blob.get("status"),
+            "createdAt": blob.get("createdAt"),
+            "lastModifiedAt": blob.get("lastModifiedAt")
+        }
+
+        dq_df.append(dq_data)
+    return dq_df    
 
 # =========================
 # DEVICE CODE CALLBACK
@@ -106,23 +118,8 @@ def call_purview():
             
                 data = response.json()
                 
-                for blob in data:
-                    dq_data = {
-                        "businessDomainName": businessDomainName,
-                        "dataProductName": dataProductName,
-                        "assetName": asset_name,
-                        "dqName": blob.get("name"),
-                        "id": blob.get("id"),
-                        "description": blob.get("description"),
-                        "SQLcondition": blob.get("typeProperties", {}).get("condition"),
-                        "columns": [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])],
-                        "dimension": blob.get("dimension"),
-                        "threshold": float(dimension_thresholds.get(blob.get("dimension"), 0.75)),
-                        "status": blob.get("status"),
-                        "createdAt": blob.get("createdAt"),
-                        "lastModifiedAt": blob.get("lastModifiedAt")
-                    }
-                    dq_df.append(dq_data)
+                dq_df = data_parser(data, businessDomainName, dataProductName, asset_name)
+
   
 
         return jsonify(dq_df)
