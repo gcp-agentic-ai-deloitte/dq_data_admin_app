@@ -1,7 +1,10 @@
 from flask import Flask, jsonify
+from datetime import datetime
 from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 import requests
 import logging
+
+
 logging.getLogger("azure").setLevel(logging.WARNING)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.ERROR)
 
@@ -40,6 +43,8 @@ def data_parser(data, businessDomainName, dataProductName, asset_name):
     dq_df = []
 
     for blob in data:
+        # if blob.get("status", "").lower() != "active":
+        #     continue
         dq_data = {
             "businessDomainName": businessDomainName,
             "dataProductName": dataProductName,
@@ -48,12 +53,17 @@ def data_parser(data, businessDomainName, dataProductName, asset_name):
             "id": blob.get("id"),
             "description": blob.get("description"),
             "SQLcondition": blob.get("typeProperties", {}).get("condition"),
-            "columns": [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])],
+            "columns": ", ".join(
+                                    [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])]
+                                ),
             "dimension": blob.get("dimension"),
             "threshold": 80,
-            "status": blob.get("status"),
-            "createdAt": blob.get("createdAt"),
-            "lastModifiedAt": blob.get("lastModifiedAt")
+            "purviewStatus": blob.get("status"),
+            "createdAtPurview": blob.get("createdAt"),
+            "lastModifiedAtPurview": blob.get("lastModifiedAt"),
+            "approvalStatus": "Pending",
+            "isActive":"N",
+            "approvalDateTime":datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
         dq_df.append(dq_data)
