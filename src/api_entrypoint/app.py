@@ -61,9 +61,7 @@ def data_parser(data, businessDomainName, dataProductName, asset_name):
             "purviewStatus": blob.get("status"),
             "createdAtPurview": blob.get("createdAt"),
             "lastModifiedAtPurview": blob.get("lastModifiedAt"),
-            "approvalStatus": "Pending",
-            "isActive":"N",
-            "approvalDateTime":datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "validationStatus": False
         }
 
         dq_df.append(dq_data)
