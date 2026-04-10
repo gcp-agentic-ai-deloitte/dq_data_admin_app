@@ -215,7 +215,7 @@ def call_purview():
 
 @app.route("/dqcheck/update", methods=["POST"])
 def dqcheck_update():
-    data = request.json["body"]
+    data = request.json
     try:
         val_parser(data)
         return {"status": "success"}
