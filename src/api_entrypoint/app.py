@@ -32,7 +32,7 @@ def init_spark():
         ).getOrCreate()
 
 
-table_path = "workspace.dq_items.dq_rules_validated_raw"
+table_path = "workspace.dq_items.dq_rule_master_test"
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
