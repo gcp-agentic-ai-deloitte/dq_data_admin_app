@@ -203,9 +203,9 @@ def dq_master_loader(spark, spark_df, table_path):
 
         # Columns to check for change
         change_condition = """
-            t.description <> s.description OR
-            t.SQLcondition <> s.SQLcondition OR
-            t.dimension <> s.dimension
+            t.description <=> s.description AND
+            t.SQLcondition <=> s.SQLcondition AND
+            t.dimension <=> s.dimension
         """
 
         # Step 1: Expire old records where change detected
@@ -233,7 +233,7 @@ def dq_master_loader(spark, spark_df, table_path):
                 "id": "s.id",
                 "description": "s.description",
                 "SQLcondition": "s.SQLcondition",
-                "columns": "s.columns",
+                "`columns`": "s.columns",
                 "dimension": "s.dimension",
                 "threshold": "s.threshold",
                 "weight": "s.weight",
