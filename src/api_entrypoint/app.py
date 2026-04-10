@@ -23,7 +23,7 @@ def init_spark():
     return DatabricksSession.builder.remote(
             host="https://dbc-32d63ff1-3673.cloud.databricks.com",
             token="dapi9996c758f9e5dd3ccb5184be16b2c624",
-            http_path = "/sql/1.0/warehouses/98f557406c84fa4f"
+            serverless=True
         ).getOrCreate()
 
 
