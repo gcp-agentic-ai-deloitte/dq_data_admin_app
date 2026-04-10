@@ -7,6 +7,9 @@ from databricks.connect import DatabricksSession
 from pyspark.sql.types import *
 from delta.tables import DeltaTable
 from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import requests
 import logging
 
@@ -36,8 +39,8 @@ SCOPE = "https://purview.azure.net/.default"
 
 
 
-# Format
-formatted = from_utc_timestamp(current_timestamp(), 'Asia/Dubai')
+abu_dhabi_tz = ZoneInfo("Asia/Dubai")
+formatted = datetime.now(abu_dhabi_tz)
 
 businessDomainId = "17c856d9-01d1-4ed5-aa73-f3bdecabdd93"
 businessDomainName = "Cybersecurity - Foundational"
