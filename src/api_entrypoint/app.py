@@ -219,11 +219,8 @@ def dqcheck_update():
     try:
         val_parser(data)
         return {"status": "success"}
-    except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "message": "Validation load failed.."
-        }), 500
+    except:
+        return {"status": "failes"}
 
 
 # =========================
