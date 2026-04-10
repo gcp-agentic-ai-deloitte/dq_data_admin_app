@@ -1,7 +1,7 @@
 from flask import Flask, jsonify ,request
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
+import os
 from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 from databricks.connect import DatabricksSession
 from pyspark.sql.types import StructType, StructField, StringType
@@ -226,4 +226,5 @@ def dqcheck_update():
 # APP STARTUP
 # =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))  # <-- important
+    app.run(host="0.0.0.0", port=port)
