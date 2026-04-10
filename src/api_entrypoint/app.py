@@ -18,11 +18,13 @@ app = Flask(__name__)
 # Enable logging
 logging.basicConfig(level=logging.INFO)
 
-spark = DatabricksSession.builder.remote(
-    host="https://dbc-32d63ff1-3673.cloud.databricks.com",
-    token="dapi9996c758f9e5dd3ccb5184be16b2c624",
-    serverless_compute_id="workspace.dq_items.dq_rules_validated_raw"
-).getOrCreate()
+
+def init_spark():
+    return DatabricksSession.builder.remote(
+            host="https://dbc-32d63ff1-3673.cloud.databricks.com",
+            token="dapi9996c758f9e5dd3ccb5184be16b2c624",
+            serverless_compute_id="workspace.dq_items.dq_rules_validated_raw"
+        ).getOrCreate()
 
 
 table_path = None
@@ -58,6 +60,8 @@ cache_options = TokenCachePersistenceOptions(
     name="purview_token_cache",
     allow_unencrypted_storage=True 
 )
+
+spark = init_spark()
 
 def val_parser(data):
 
