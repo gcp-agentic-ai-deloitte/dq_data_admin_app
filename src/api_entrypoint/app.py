@@ -311,9 +311,9 @@ def call_purview():
             
                 data = response.json()
                 
-                
+                spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
                 try:
-                    spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
+                    
                     df = dq_master_loader(spark, spark_df, table_path)
                     return jsonify(df)
                 except:
