@@ -23,11 +23,11 @@ def init_spark():
     return DatabricksSession.builder.remote(
             host="https://dbc-32d63ff1-3673.cloud.databricks.com",
             token="dapi9996c758f9e5dd3ccb5184be16b2c624",
-            serverless_compute_id="workspace.dq_items.dq_rules_validated_raw"
+            serverless_compute_id="auto"
         ).getOrCreate()
 
 
-table_path = None
+table_path = "workspace.dq_items.dq_rules_validated_raw"
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
