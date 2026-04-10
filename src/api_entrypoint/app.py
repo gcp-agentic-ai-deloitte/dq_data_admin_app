@@ -129,8 +129,8 @@ def purview_dq_data_parser( spark, data, businessDomainName, dataProductName, as
         StructField("threshold", IntegerType(), True),  
         StructField("weight", IntegerType(), True),      
         StructField("purviewStatus", StringType(), True),
-        StructField("createdAtPurview", TimestampType(), True),   
-        StructField("lastModifiedAtPurview", TimestampType(), True), 
+        StructField("createdAtPurview", StringType(), True),   
+        StructField("lastModifiedAtPurview", StringType(), True), 
         StructField("status", StringType(), True),
         StructField("comment", StringType(), True),
         StructField("isActive", StringType(), True),
@@ -308,12 +308,13 @@ def call_purview():
             
                 data = response.json()
                 
-                spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
+                
                 try:
+                    spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
                     df = dq_master_loader(spark, spark_df, table_path)
                     return jsonify(df)
                 except:
-                    return {"status": "dq master load failed!"}
+                    return {"status": "data parsing or dq master load failed!"}
 
         return jsonify(df)
 
