@@ -323,7 +323,7 @@ def powerapp_dq_data_parser( spark, data):
             "businessDomainName": blob.get("businessDomainName"),
             "dataProductName": blob.get("dataProductName"),
             "assetName": blob.get("assetName"),
-            "dqName": blob.get("name"),
+            "dqName": blob.get("dqName"),
             "id": blob.get("id"),
             "description": blob.get("description"),
             "SQLcondition": blob.get("SQLcondition"),
@@ -497,7 +497,7 @@ def call_purview():
 def dqcheck_update():
     data = request.json
     try:
-        spark_df = powerapp_dq_data_parser( spark, data)
+        spark_df = powerapp_dq_data_parser(spark, data)
         dq_master_updater(spark, spark_df, table_path)
         return {"status": "success"}
     except:
