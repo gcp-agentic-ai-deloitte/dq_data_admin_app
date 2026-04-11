@@ -200,7 +200,9 @@ def dq_master_loader(spark, spark_df, table_path):
             
             df =  spark.table(table_path)
             active_df = df.filter(df.isActive == "Y")
-            result = [json.loads(row) for row in active_df.limit(1000).toJSON().collect()]
+            limit = 100
+            active_df = active_df.limit(limit)
+            result = [row.asDict(recursive=True) for row in active_df.collect()]
             return result
                     
     else:
@@ -265,7 +267,9 @@ def dq_master_loader(spark, spark_df, table_path):
        
         df =  spark.table(table_path)
         active_df = df.filter(df.isActive == "Y")
-        result = [json.loads(row) for row in active_df.limit(1000).toJSON().collect()]
+        limit = 100
+        active_df = active_df.limit(limit)
+        result = [row.asDict(recursive=True) for row in active_df.collect()]
         return result
 
 # =========================
