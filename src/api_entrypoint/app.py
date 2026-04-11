@@ -197,7 +197,7 @@ def dq_master_loader(spark, spark_df, table_path):
                 .format("delta") \
                 .mode("append") \
                 .saveAsTable(table_path)
-            spark.catalog.refreshTable(table_path)
+            
             df =  spark.table(table_path)
             active_df = df.filter(df.isActive == "Y")
             result = active_df.limit(1000).toPandas().to_dict(orient="records")
@@ -262,7 +262,7 @@ def dq_master_loader(spark, spark_df, table_path):
                 "endDateTime": "s.endDateTime"
             }
         ).execute()
-        spark.catalog.refreshTable(table_path)
+       
         df =  spark.table(table_path)
         active_df = df.filter(df.isActive == "Y")
         result = active_df.limit(1000).toPandas().to_dict(orient="records")
