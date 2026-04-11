@@ -338,16 +338,7 @@ def call_purview():
         if response.status_code == 401:
             app.logger.info("Token expired, retrying with fresh token...")
             response = requests.get(url, headers=get_headers())
-            try:
-                spark_df = purview_dq_data_parser(spark, temp, businessDomainName, dataProductName, asset_name)
-                result = dq_master_loader(spark, spark_df, table_path)
-                return jsonify(result)
-            except Exception as e:
-                return {
-                    "status": "failed",
-                    "error": str(e)
-                }
-        
+
 
         if response.status_code == 200:
                 temp = [] ###########VERY DANGER APPROACH########
@@ -362,6 +353,17 @@ def call_purview():
                         "status": "failed",
                         "error": str(e)
                     }
+        else:
+            try:
+                spark_df = purview_dq_data_parser(spark, temp, businessDomainName, dataProductName, asset_name)
+                result = dq_master_loader(spark, spark_df, table_path)
+                return jsonify(result)
+            except Exception as e:
+                return {
+                    "status": "failed",
+                    "error": str(e)
+                }
+        
 
     except Exception as e:
         return jsonify({
