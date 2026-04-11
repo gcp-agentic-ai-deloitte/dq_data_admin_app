@@ -197,10 +197,11 @@ def dq_master_loader(spark, spark_df, table_path):
                 .format("delta") \
                 .mode("append") \
                 .saveAsTable(table_path)
-            
+            spark.catalog.refreshTable(table_path)
             df =  spark.table(table_path)
             active_df = df.filter(df.isActive == "Y")
-            return active_df
+            result = active_df.limit(1000).toPandas().to_dict(orient="records")
+            return result
                     
     else:
         
@@ -261,10 +262,11 @@ def dq_master_loader(spark, spark_df, table_path):
                 "endDateTime": "s.endDateTime"
             }
         ).execute()
-
+        spark.catalog.refreshTable(table_path)
         df =  spark.table(table_path)
         active_df = df.filter(df.isActive == "Y")
-        return active_df
+        result = active_df.limit(1000).toPandas().to_dict(orient="records")
+        return result
 
 # =========================
 # DEVICE CODE CALLBACK
@@ -326,11 +328,13 @@ def call_purview():
                 data = response.json()
                 try:
                     spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
-                    active_df = dq_master_loader(spark, spark_df, table_path)
-                    result = active_df.limit(1000).toPandas().to_dict(orient="records")
+                    result = dq_master_loader(spark, spark_df, table_path)
                     return jsonify(result)
-                except:
-                    return {"status": "data parsing or dq master load failed!"}
+                except Exception as e:
+                    return {
+                        "status": "failed",
+                        "error": str(e)
+                    }
 
     except Exception as e:
         return jsonify({
