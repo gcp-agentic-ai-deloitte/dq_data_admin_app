@@ -4,7 +4,12 @@ from zoneinfo import ZoneInfo
 import os
 from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 from databricks.connect import DatabricksSession
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import *
+from delta.tables import DeltaTable
+from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import requests
 import logging
 
@@ -27,21 +32,15 @@ def init_spark():
         ).getOrCreate()
 
 
-table_path = "workspace.dq_items.dq_rules_validated_raw"
+table_path = "workspace.dq_items.dq_rule_master_test"
 
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
 
 
-# Abu Dhabi timezone
+
 abu_dhabi_tz = ZoneInfo("Asia/Dubai")
-
-# Current datetime
-now = datetime.now(abu_dhabi_tz)
-
-# Format
-formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-
+formatted = datetime.now(abu_dhabi_tz)
 
 businessDomainId = "17c856d9-01d1-4ed5-aa73-f3bdecabdd93"
 businessDomainName = "Cybersecurity - Foundational"
@@ -63,57 +62,87 @@ cache_options = TokenCachePersistenceOptions(
 
 spark = init_spark()
 
-def val_parser(data):
+
+def is_table_empty(spark, table_name):
+    df = spark.table(table_name)
+    return df.limit(1).count() == 0
+
+# def val_parser(data):
+
+#     schema = StructType([
+#                 StructField("businessDomainName", StringType(), True),
+#                 StructField("dataProductName", StringType(), True),
+#                 StructField("assetName", StringType(), True),
+#                 StructField("dqName", StringType(), True),
+#                 StructField("id", StringType(), True),
+#                 StructField("description", StringType(), True),
+#                 StructField("SQLcondition", StringType(), True),
+#                 StructField("columns", StringType(), True),
+#                 StructField("dimension", StringType(), True),
+#                 StructField("threshold", StringType(), True),
+#                 StructField("purviewStatus", StringType(), True),
+#                 StructField("createdAtPurview", StringType(), True),
+#                 StructField("lastModifiedAtPurview", StringType(), True),
+#                 StructField("validationStatus", StringType(), True),
+#                 StructField("validationDateTime", StringType(), True)
+#             ])
+#     dq_df = []
+
+#     for blob in data:
+#         # if blob.get("status", "").lower() != "active":
+#         #     continue
+#         dq_data = {
+#             "businessDomainName": blob.get("businessDomainName"),
+#             "dataProductName": blob.get("dataProductName"),
+#             "assetName": blob.get("asset_name"),
+#             "dqName": blob.get("name"),
+#             "id": blob.get("id"),
+#             "description": blob.get("description"),
+#             "SQLcondition": blob.get("SQLcondition"),
+#             "columns": blob.get("columns"),
+#             "dimension": blob.get("dimension"),
+#             "threshold": blob.get("threshold"),
+#             "purviewStatus": blob.get("status"),
+#             "createdAtPurview": blob.get("createdAt"),
+#             "lastModifiedAtPurview": blob.get("lastModifiedAt"),
+#             "validationStatus": blob.get("validationStatus"),
+#             "validationDateTime": str(formatted)
+#         }
+#         dq_df.append(dq_data)
+
+#     spark_df = spark.createDataFrame(dq_df, schema=schema)
+#     spark_df.write \
+#     .format("delta") \
+#     .mode("append") \
+#     .saveAsTable(table_path)    
+
+
+def purview_dq_data_parser( spark, data, businessDomainName, dataProductName, asset_name):
 
     schema = StructType([
-                StructField("businessDomainName", StringType(), True),
-                StructField("dataProductName", StringType(), True),
-                StructField("assetName", StringType(), True),
-                StructField("dqName", StringType(), True),
-                StructField("id", StringType(), True),
-                StructField("description", StringType(), True),
-                StructField("SQLcondition", StringType(), True),
-                StructField("columns", StringType(), True),
-                StructField("dimension", StringType(), True),
-                StructField("threshold", StringType(), True),
-                StructField("purviewStatus", StringType(), True),
-                StructField("createdAtPurview", StringType(), True),
-                StructField("lastModifiedAtPurview", StringType(), True),
-                StructField("validationStatus", StringType(), True),
-                StructField("validationDateTime", StringType(), True)
-            ])
-    dq_df = []
+        StructField("businessDomainName", StringType(), True),
+        StructField("dataProductName", StringType(), True),
+        StructField("assetName", StringType(), True),
+        StructField("dqName", StringType(), True),
+        StructField("id", StringType(), True),
+        StructField("description", StringType(), True),
+        StructField("SQLcondition", StringType(), True),
+        StructField("columns", StringType(), True),
+        StructField("dimension", StringType(), True),
+        StructField("threshold", IntegerType(), True),  
+        StructField("weight", IntegerType(), True),      
+        StructField("purviewStatus", StringType(), True),
+        StructField("createdAtPurview", StringType(), True),   
+        StructField("lastModifiedAtPurview", StringType(), True), 
+        StructField("status", StringType(), True),
+        StructField("comment", StringType(), True),
+        StructField("isActive", StringType(), True),
+        StructField("loadDateTime", TimestampType(), True), 
+        StructField("startDateTime", TimestampType(), True), 
+        StructField("endDateTime", TimestampType(), True), 
 
-    for blob in data:
-        # if blob.get("status", "").lower() != "active":
-        #     continue
-        dq_data = {
-            "businessDomainName": blob.get("businessDomainName"),
-            "dataProductName": blob.get("dataProductName"),
-            "assetName": blob.get("asset_name"),
-            "dqName": blob.get("name"),
-            "id": blob.get("id"),
-            "description": blob.get("description"),
-            "SQLcondition": blob.get("SQLcondition"),
-            "columns": blob.get("columns"),
-            "dimension": blob.get("dimension"),
-            "threshold": blob.get("threshold"),
-            "purviewStatus": blob.get("status"),
-            "createdAtPurview": blob.get("createdAt"),
-            "lastModifiedAtPurview": blob.get("lastModifiedAt"),
-            "validationStatus": blob.get("validationStatus"),
-            "validationDateTime": str(formatted)
-        }
-        dq_df.append(dq_data)
+    ])
 
-    spark_df = spark.createDataFrame(dq_df, schema=schema)
-    spark_df.write \
-    .format("delta") \
-    .mode("append") \
-    .saveAsTable(table_path)    
-
-
-def data_parser(data, businessDomainName, dataProductName, asset_name):
     dq_df = []
 
     for blob in data:
@@ -132,14 +161,110 @@ def data_parser(data, businessDomainName, dataProductName, asset_name):
                                 ),
             "dimension": blob.get("dimension"),
             "threshold": 80,
+            "weight": 80,
             "purviewStatus": blob.get("status"),
             "createdAtPurview": blob.get("createdAt"),
             "lastModifiedAtPurview": blob.get("lastModifiedAt"),
-            "validationStatus": False
+            "status": "new",
+            "comment": None,
+            "isActive": "Y",
+            "loadDateTime": None,
+            "startDateTime": None,
+            "endDateTime": None
         }
 
         dq_df.append(dq_data)
-    return dq_df    
+
+    spark_df = spark.createDataFrame(dq_df, schema=schema)
+    return spark_df
+
+def dq_master_loader(spark, spark_df, table_path):
+    ts = from_utc_timestamp(current_timestamp(), "Asia/Dubai")
+            
+    spark_df = spark_df.withColumn(
+        "loadDateTime",
+        ts
+    ).withColumn(
+        "startDateTime",
+        ts
+    ).withColumn(
+        "endDateTime",
+        lit(None).cast("timestamp")
+    )
+
+    if is_table_empty(spark, table_path):
+            spark_df.write \
+                .format("delta") \
+                .mode("append") \
+                .saveAsTable(table_path)
+            
+            df =  spark.table(table_path)
+            active_df = df.filter(df.isActive == "Y")
+            return active_df
+                    
+    else:
+        
+        delta_table = DeltaTable.forName(spark, table_path)
+
+        # Alias
+        target = delta_table.alias("t")
+        source = spark_df.alias("s")
+
+        # Condition for matching active records
+        merge_condition = "t.id = s.id AND t.isActive = 'Y'"
+
+        # Columns to check for change
+        change_condition = """
+           NOT( t.description <=> s.description AND
+            t.SQLcondition <=> s.SQLcondition AND
+            t.dimension <=> s.dimension AND
+            t.purviewStatus <=> s.purviewStatus)
+        """
+
+        # Step 1: Expire old records where change detected
+        target.merge(
+            source,
+            merge_condition
+        ).whenMatchedUpdate(
+            condition=change_condition,
+            set={
+                "isActive": "'N'",
+                "endDateTime": "from_utc_timestamp(current_timestamp(), 'Asia/Dubai')"
+            }
+        ).execute()
+
+        # Step 2: Insert new records (new OR changed)
+        target.merge(
+            source,
+            merge_condition
+        ).whenNotMatchedInsert(
+            values={
+                "businessDomainName": "s.businessDomainName",
+                "dataProductName": "s.dataProductName",
+                "assetName": "s.assetName",
+                "dqName": "s.dqName",
+                "id": "s.id",
+                "description": "s.description",
+                "SQLcondition": "s.SQLcondition",
+                "`columns`": "s.columns",
+                "dimension": "s.dimension",
+                "threshold": "s.threshold",
+                "weight": "s.weight",
+                "purviewStatus": "s.purviewStatus",
+                "createdAtPurview": "s.createdAtPurview",
+                "lastModifiedAtPurview": "s.lastModifiedAtPurview",
+                "status": "s.status",
+                "comment": "s.comment",
+                "isActive": "s.isActive",
+                "loadDateTime": "s.loadDateTime",
+                "startDateTime":"s.startDateTime",
+                "endDateTime": "s.endDateTime"
+            }
+        ).execute()
+
+        df =  spark.table(table_path)
+        active_df = df.filter(df.isActive == "Y")
+        return active_df
 
 # =========================
 # DEVICE CODE CALLBACK
@@ -199,12 +324,13 @@ def call_purview():
         if response.status_code == 200:
             
                 data = response.json()
-                
-                dq_df = data_parser(data, businessDomainName, dataProductName, asset_name)
-
-  
-
-        return jsonify(dq_df)
+                try:
+                    spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
+                    active_df = dq_master_loader(spark, spark_df, table_path)
+                    result = active_df.limit(1000).toPandas().to_dict(orient="records")
+                    return jsonify(result)
+                except:
+                    return {"status": "data parsing or dq master load failed!"}
 
     except Exception as e:
         return jsonify({
@@ -213,14 +339,14 @@ def call_purview():
         }), 500
 
 
-@app.route("/dqcheck/update", methods=["POST"])
-def dqcheck_update():
-    data = request.json
-    try:
-        val_parser(data)
-        return {"status": "success"}
-    except:
-        return {"status": "failes"}
+# @app.route("/dqcheck/update", methods=["POST"])
+# def dqcheck_update():
+#     data = request.json
+#     try:
+#         val_parser(data)
+#         return {"status": "success"}
+#     except:
+#         return {"status": "failes"}
 
 
 # =========================
