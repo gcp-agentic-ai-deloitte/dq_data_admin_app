@@ -201,7 +201,7 @@ def dq_master_loader(spark, spark_df, table_path):
             spark.sql("SELECT 1").collect()
 
             # Allow commit propagation
-            time.sleep(1)
+            time.sleep(3)
 
             # Ensure table ready
             spark.table(table_path).limit(1).collect()
@@ -271,17 +271,11 @@ def dq_master_loader(spark, spark_df, table_path):
                 "endDateTime": "s.endDateTime"
             }
         ).execute()
-       
-        # df =  spark.table(table_path)
-        # active_df = df.filter(df.isActive == "Y")
-        # limit = 100
-        # active_df = active_df.limit(limit)
-        # result = [row.asDict(recursive=True) for row in active_df.collect()]
-        # Warm-up Spark
+
         spark.sql("SELECT 1").collect()
 
         # Allow commit propagation
-        time.sleep(1)
+        time.sleep(3)
 
         # Ensure table ready
         spark.table(table_path).limit(1).collect()
@@ -307,10 +301,6 @@ credential = DeviceCodeCredential(
     prompt_callback=device_code_callback,
     cache_persistence_options=cache_options
 )
-
-# app.logger.info("Triggering initial authentication...")
-# credential.get_token(SCOPE)  # triggers device login once
-# app.logger.info("Running the app...")
 
 def init_auth():
     global auth_initialized
@@ -367,7 +357,7 @@ def call_purview():
         }), 500
 
 
-# @app.route("/dqcheck/update", methods=["POST"])
+# @app.route("/dqcheck/owner", methods=["POST"])
 # def dqcheck_update():
 #     data = request.json
 #     try:
