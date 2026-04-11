@@ -69,54 +69,13 @@ def is_table_empty(spark, table_name):
     df = spark.table(table_name)
     return df.limit(1).count() == 0
 
-# def val_parser(data):
-
-#     schema = StructType([
-#                 StructField("businessDomainName", StringType(), True),
-#                 StructField("dataProductName", StringType(), True),
-#                 StructField("assetName", StringType(), True),
-#                 StructField("dqName", StringType(), True),
-#                 StructField("id", StringType(), True),
-#                 StructField("description", StringType(), True),
-#                 StructField("SQLcondition", StringType(), True),
-#                 StructField("columns", StringType(), True),
-#                 StructField("dimension", StringType(), True),
-#                 StructField("threshold", StringType(), True),
-#                 StructField("purviewStatus", StringType(), True),
-#                 StructField("createdAtPurview", StringType(), True),
-#                 StructField("lastModifiedAtPurview", StringType(), True),
-#                 StructField("validationStatus", StringType(), True),
-#                 StructField("validationDateTime", StringType(), True)
-#             ])
-#     dq_df = []
-
-#     for blob in data:
-#         # if blob.get("status", "").lower() != "active":
-#         #     continue
-#         dq_data = {
-#             "businessDomainName": blob.get("businessDomainName"),
-#             "dataProductName": blob.get("dataProductName"),
-#             "assetName": blob.get("asset_name"),
-#             "dqName": blob.get("name"),
-#             "id": blob.get("id"),
-#             "description": blob.get("description"),
-#             "SQLcondition": blob.get("SQLcondition"),
-#             "columns": blob.get("columns"),
-#             "dimension": blob.get("dimension"),
-#             "threshold": blob.get("threshold"),
-#             "purviewStatus": blob.get("status"),
-#             "createdAtPurview": blob.get("createdAt"),
-#             "lastModifiedAtPurview": blob.get("lastModifiedAt"),
-#             "validationStatus": blob.get("validationStatus"),
-#             "validationDateTime": str(formatted)
-#         }
-#         dq_df.append(dq_data)
-
-#     spark_df = spark.createDataFrame(dq_df, schema=schema)
-#     spark_df.write \
-#     .format("delta") \
-#     .mode("append") \
-#     .saveAsTable(table_path)    
+def parse_datetime(val):
+    if val is None:
+        return None
+    try:
+        return datetime.strptime(val, "%a, %d %b %Y %H:%M:%S %Z")
+    except:
+        return None    
 
 
 def purview_dq_data_parser( spark, data, businessDomainName, dataProductName, asset_name):
@@ -331,15 +290,15 @@ def powerapp_dq_data_parser( spark, data):
             "dimension": blob.get("dimension"),
             "threshold": blob.get("threshold"),
             "weight": blob.get("weight"),
-            "purviewStatus": blob.get("status"),
-            "createdAtPurview": blob.get("createdAt"),
-            "lastModifiedAtPurview": blob.get("lastModifiedAt"),
+            "purviewStatus": blob.get("purviewStatus"),
+            "createdAtPurview": blob.get("createdAtPurview"),
+            "lastModifiedAtPurview": blob.get("lastModifiedAtPurview"),
             "status": blob.get("status"),
             "comment": blob.get("comment"),
             "isActive": blob.get("isActive"),
-            "loadDateTime": blob.get("loadDateTime"),
-            "startDateTime": blob.get("startDateTime"),
-            "endDateTime": blob.get("endDateTime")
+            "loadDateTime": parse_datetime(blob.get("loadDateTime")),
+            "startDateTime": parse_datetime(blob.get("startDateTime")),
+            "endDateTime": parse_datetime(blob.get("endDateTime"))
         }
 
         dq_df.append(dq_data)
