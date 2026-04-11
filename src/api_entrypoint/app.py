@@ -6,7 +6,7 @@ from azure.identity import DeviceCodeCredential, TokenCachePersistenceOptions
 from databricks.connect import DatabricksSession
 from pyspark.sql.types import *
 from delta.tables import DeltaTable
-from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit
+from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit,to_timestamp
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -493,15 +493,47 @@ def call_purview():
         }), 500
 
 
+# @app.route("/dqcheck/owner", methods=["POST"])
+# def dqcheck_update():
+#     data = request.json
+#     try:
+#         spark_df = powerapp_dq_data_parser(spark, data)
+#         dq_master_updater(spark, spark_df, table_path)
+#         return {"status": "success"}
+#     except:
+#         return {"status": "failes"}
+
+
 @app.route("/dqcheck/owner", methods=["POST"])
 def dqcheck_update():
-    data = request.json
     try:
+        data = request.get_json(force=True)
+
+        if isinstance(data, dict):
+            data = data.get("data", [])
+
+        if not data:
+            return {"status": "failed", "error": "Empty payload"}, 400
+
         spark_df = powerapp_dq_data_parser(spark, data)
+
+        # Fix timestamps
+   
+        spark_df = spark_df.withColumn(
+            "loadDateTime",
+            to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        ).withColumn(
+            "startDateTime",
+            to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        )
+
         dq_master_updater(spark, spark_df, table_path)
-        return {"status": "success"}
-    except:
-        return {"status": "failes"}
+
+        return {"status": "success", "count": len(data)}
+
+    except Exception as e:
+        app.logger.error(str(e))
+        return {"status": "failed", "error": str(e)}, 500
     
 
 @app.route("/databricks", methods=["GET"])
