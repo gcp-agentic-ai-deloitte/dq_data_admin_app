@@ -52,6 +52,8 @@ asset_name = "gld_cybersec_fact_machine_vulnerabilities_snapshot"
 
 auth_initialized = False
 
+temp = []
+
 # =========================
 # TOKEN CACHE (PERSISTENT)
 # =========================
@@ -326,6 +328,7 @@ def get_headers():
 # =========================
 @app.route("/purview", methods=["GET"])
 def call_purview():
+    global temp ###########VERY DANGER APPROACH########
     try:
         url = f"{PURVIEW_ENDPOINT}/datagovernance/quality/business-domains/{businessDomainId}/data-products/{dataProductId}/data-assets/{asset_id}/rules?api-version=2025-09-01-preview"
 
@@ -335,11 +338,21 @@ def call_purview():
         if response.status_code == 401:
             app.logger.info("Token expired, retrying with fresh token...")
             response = requests.get(url, headers=get_headers())
-
+            try:
+                spark_df = purview_dq_data_parser(spark, temp, businessDomainName, dataProductName, asset_name)
+                result = dq_master_loader(spark, spark_df, table_path)
+                return jsonify(result)
+            except Exception as e:
+                return {
+                    "status": "failed",
+                    "error": str(e)
+                }
+        
 
         if response.status_code == 200:
-            
+                temp = [] ###########VERY DANGER APPROACH########
                 data = response.json()
+                temp = data ###########VERY DANGER APPROACH########
                 try:
                     spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
                     result = dq_master_loader(spark, spark_df, table_path)
