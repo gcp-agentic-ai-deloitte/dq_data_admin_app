@@ -7,7 +7,7 @@ from databricks.connect import DatabricksSession
 from pyspark.sql.types import *
 from delta.tables import DeltaTable
 from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit
-
+import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
@@ -200,7 +200,7 @@ def dq_master_loader(spark, spark_df, table_path):
             
             df =  spark.table(table_path)
             active_df = df.filter(df.isActive == "Y")
-            result = active_df.limit(1000).toPandas().to_dict(orient="records")
+            result = [json.loads(row) for row in active_df.limit(1000).toJSON().collect()]
             return result
                     
     else:
@@ -265,7 +265,7 @@ def dq_master_loader(spark, spark_df, table_path):
        
         df =  spark.table(table_path)
         active_df = df.filter(df.isActive == "Y")
-        result = active_df.limit(1000).toPandas().to_dict(orient="records")
+        result = [json.loads(row) for row in active_df.limit(1000).toJSON().collect()]
         return result
 
 # =========================
