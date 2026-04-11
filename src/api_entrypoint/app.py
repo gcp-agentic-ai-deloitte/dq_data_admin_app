@@ -287,6 +287,127 @@ def dq_master_loader(spark, spark_df, table_path):
 
         result = [row.asDict(recursive=True) for row in df.collect()]
         return result
+    
+def powerapp_dq_data_parser( spark, data):
+
+    schema = StructType([
+        StructField("businessDomainName", StringType(), True),
+        StructField("dataProductName", StringType(), True),
+        StructField("assetName", StringType(), True),
+        StructField("dqName", StringType(), True),
+        StructField("id", StringType(), True),
+        StructField("description", StringType(), True),
+        StructField("SQLcondition", StringType(), True),
+        StructField("columns", StringType(), True),
+        StructField("dimension", StringType(), True),
+        StructField("threshold", IntegerType(), True),  
+        StructField("weight", IntegerType(), True),      
+        StructField("purviewStatus", StringType(), True),
+        StructField("createdAtPurview", StringType(), True),   
+        StructField("lastModifiedAtPurview", StringType(), True), 
+        StructField("status", StringType(), True),
+        StructField("comment", StringType(), True),
+        StructField("isActive", StringType(), True),
+        StructField("loadDateTime", TimestampType(), True), 
+        StructField("startDateTime", TimestampType(), True), 
+        StructField("endDateTime", TimestampType(), True), 
+
+    ])
+
+    dq_df = []
+
+    for blob in data:
+        # if blob.get("status", "").lower() != "active":
+        #     continue
+        dq_data = {
+            "businessDomainName": blob.get("businessDomainName"),
+            "dataProductName": blob.get("dataProductName"),
+            "assetName": blob.get("assetName"),
+            "dqName": blob.get("name"),
+            "id": blob.get("id"),
+            "description": blob.get("description"),
+            "SQLcondition": blob.get("SQLcondition"),
+            "columns": blob.get("columns"),
+            "dimension": blob.get("dimension"),
+            "threshold": blob.get("threshold"),
+            "weight": blob.get("weight"),
+            "purviewStatus": blob.get("status"),
+            "createdAtPurview": blob.get("createdAt"),
+            "lastModifiedAtPurview": blob.get("lastModifiedAt"),
+            "status": blob.get("status"),
+            "comment": blob.get("comment"),
+            "isActive": blob.get("isActive"),
+            "loadDateTime": blob.get("loadDateTime"),
+            "startDateTime": blob.get("startDateTime"),
+            "endDateTime": blob.get("endDateTime")
+        }
+
+        dq_df.append(dq_data)
+
+    spark_df = spark.createDataFrame(dq_df, schema=schema)
+    return spark_df
+
+def dq_master_updater(spark, spark_df, table_path):
+        
+        delta_table = DeltaTable.forName(spark, table_path)
+
+        # Alias
+        target = delta_table.alias("t")
+        source = spark_df.alias("s")
+
+        # Condition for matching active records
+        merge_condition = "t.id = s.id AND t.isActive = 'Y'"
+
+        # Columns to check for change
+        change_condition = """
+           NOT( t.description <=> s.description AND
+            t.SQLcondition <=> s.SQLcondition AND
+            t.dimension <=> s.dimension AND
+            t.purviewStatus <=> s.purviewStatus) AND
+            t.status <=> s.status
+        """
+
+        # Step 1: Expire old records where change detected
+        target.merge(
+            source,
+            merge_condition
+        ).whenMatchedUpdate(
+            condition=change_condition,
+            set={
+                "isActive": "'N'",
+                "endDateTime": "from_utc_timestamp(current_timestamp(), 'Asia/Dubai')"
+            }
+        ).execute()
+
+        # Step 2: Insert new records (new OR changed)
+        target.merge(
+            source,
+            merge_condition
+        ).whenNotMatchedInsert(
+            values={
+                "businessDomainName": "s.businessDomainName",
+                "dataProductName": "s.dataProductName",
+                "assetName": "s.assetName",
+                "dqName": "s.dqName",
+                "id": "s.id",
+                "description": "s.description",
+                "SQLcondition": "s.SQLcondition",
+                "`columns`": "s.columns",
+                "dimension": "s.dimension",
+                "threshold": "s.threshold",
+                "weight": "s.weight",
+                "purviewStatus": "s.purviewStatus",
+                "createdAtPurview": "s.createdAtPurview",
+                "lastModifiedAtPurview": "s.lastModifiedAtPurview",
+                "status": "s.status",
+                "comment": "s.comment",
+                "isActive": "s.isActive",
+                "loadDateTime": "s.loadDateTime",
+                "startDateTime":"s.startDateTime",
+                "endDateTime": "s.endDateTime"
+            }
+        ).execute()
+
 
 # =========================
 # DEVICE CODE CALLBACK
@@ -372,14 +493,40 @@ def call_purview():
         }), 500
 
 
-# @app.route("/dqcheck/owner", methods=["POST"])
-# def dqcheck_update():
-#     data = request.json
-#     try:
-#         val_parser(data)
-#         return {"status": "success"}
-#     except:
-#         return {"status": "failes"}
+@app.route("/dqcheck/owner", methods=["POST"])
+def dqcheck_update():
+    data = request.json
+    try:
+        spark_df = powerapp_dq_data_parser( spark, data)
+        dq_master_updater(spark, spark_df, table_path)
+        return {"status": "success"}
+    except:
+        return {"status": "failes"}
+    
+
+@app.route("/databricks", methods=["GET"])
+def call_databricks():
+    try:
+        spark.sql("SELECT 1").collect()
+
+        # Allow commit propagation
+        time.sleep(3)
+
+        # Ensure table ready
+        spark.table(table_path).limit(1).collect()
+
+        # Actual query
+        df = spark.table(table_path).filter("isActive = 'Y' AND status != 'new'").limit(100)
+
+        result = [row.asDict(recursive=True) for row in df.collect()]
+
+        return jsonify(result)
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
 
 
 # =========================
