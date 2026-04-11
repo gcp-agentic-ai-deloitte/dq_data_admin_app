@@ -498,8 +498,8 @@ def dqcheck_update():
     data = request.json
     try:
         print(data)
-        # spark_df = powerapp_dq_data_parser( spark, data)
-        # dq_master_updater(spark, spark_df, table_path)
+        spark_df = powerapp_dq_data_parser( spark, data)
+        dq_master_updater(spark, spark_df, table_path)
         return {"status": "success"}
     except:
         return {"status": "failes"}
