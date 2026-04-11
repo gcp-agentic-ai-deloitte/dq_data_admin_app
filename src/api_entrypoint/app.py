@@ -363,8 +363,8 @@ def dq_master_updater(spark, spark_df, table_path):
            NOT( t.description <=> s.description AND
             t.SQLcondition <=> s.SQLcondition AND
             t.dimension <=> s.dimension AND
-            t.purviewStatus <=> s.purviewStatus) AND
-            t.status <=> s.status
+            t.purviewStatus <=> s.purviewStatus AND
+            t.status <=> s.status)
         """
 
         # Step 1: Expire old records where change detected
@@ -497,7 +497,6 @@ def call_purview():
 def dqcheck_update():
     data = request.json
     try:
-        print(data)
         spark_df = powerapp_dq_data_parser( spark, data)
         dq_master_updater(spark, spark_df, table_path)
         return {"status": "success"}
