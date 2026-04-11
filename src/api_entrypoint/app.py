@@ -7,7 +7,7 @@ from databricks.connect import DatabricksSession
 from pyspark.sql.types import *
 from delta.tables import DeltaTable
 from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit
-import json
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
@@ -198,11 +198,18 @@ def dq_master_loader(spark, spark_df, table_path):
                 .mode("append") \
                 .saveAsTable(table_path)
             
-            df =  spark.table(table_path)
-            active_df = df.filter(df.isActive == "Y")
-            limit = 100
-            active_df = active_df.limit(limit)
-            result = [row.asDict(recursive=True) for row in active_df.collect()]
+            spark.sql("SELECT 1").collect()
+
+            # Allow commit propagation
+            time.sleep(1)
+
+            # Ensure table ready
+            spark.table(table_path).limit(1).collect()
+
+            # Actual query
+            df = spark.table(table_path).filter("isActive = 'Y'").limit(100)
+
+            result = [row.asDict(recursive=True) for row in df.collect()]
             return result
                     
     else:
@@ -265,11 +272,24 @@ def dq_master_loader(spark, spark_df, table_path):
             }
         ).execute()
        
-        df =  spark.table(table_path)
-        active_df = df.filter(df.isActive == "Y")
-        limit = 100
-        active_df = active_df.limit(limit)
-        result = [row.asDict(recursive=True) for row in active_df.collect()]
+        # df =  spark.table(table_path)
+        # active_df = df.filter(df.isActive == "Y")
+        # limit = 100
+        # active_df = active_df.limit(limit)
+        # result = [row.asDict(recursive=True) for row in active_df.collect()]
+        # Warm-up Spark
+        spark.sql("SELECT 1").collect()
+
+        # Allow commit propagation
+        time.sleep(1)
+
+        # Ensure table ready
+        spark.table(table_path).limit(1).collect()
+
+        # Actual query
+        df = spark.table(table_path).filter("isActive = 'Y'").limit(100)
+
+        result = [row.asDict(recursive=True) for row in df.collect()]
         return result
 
 # =========================
