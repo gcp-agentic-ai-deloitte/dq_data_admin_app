@@ -8,6 +8,7 @@ from pyspark.sql.types import *
 from delta.tables import DeltaTable
 from pyspark.sql.functions import col, current_timestamp, from_utc_timestamp, lit,to_timestamp
 import time
+import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import requests
@@ -33,25 +34,12 @@ def init_spark():
 
 
 table_path = "workspace.dq_items.dq_rule_master_test"
-
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
-
-
-
 abu_dhabi_tz = ZoneInfo("Asia/Dubai")
 formatted = datetime.now(abu_dhabi_tz)
-
-businessDomainId = "17c856d9-01d1-4ed5-aa73-f3bdecabdd93"
-businessDomainName = "Cybersecurity - Foundational"
-dataProductId = "79b00c61-b8c6-417d-b269-b49d703b4499"
-dataProductName = "Cybersecurity - Consumption Layer"
-asset_id = "d762170f-dfc8-4c10-aede-a49021bda745"
-asset_name = "gld_cybersec_fact_machine_vulnerabilities_snapshot"
-
-
 auth_initialized = False
-
+json_path = "governance_domains\service_now_foundational.json"
 temp = []
 
 # =========================
@@ -64,6 +52,15 @@ cache_options = TokenCachePersistenceOptions(
 
 spark = init_spark()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def read_json_file():
+    file_path =  os.path.join(BASE_DIR, "governance_domains", "service_now_foundational.json")
+
+    with open(file_path, "r") as f:
+        data = json.load(f)
+
+    return data
 
 def is_table_empty(spark, table_name):
     df = spark.table(table_name)
@@ -75,15 +72,18 @@ def parse_datetime(val):
     try:
         return datetime.strptime(val, "%a, %d %b %Y %H:%M:%S %Z")
     except:
-        return None    
+        return None
+    
 
-
-def purview_dq_data_parser( spark, data, businessDomainName, dataProductName, asset_name):
-
+def structured_data(spark, data):
     schema = StructType([
         StructField("businessDomainName", StringType(), True),
+        StructField("governance_domain_id", StringType(), True),
         StructField("dataProductName", StringType(), True),
+        StructField("data_product_id", StringType(), True),
         StructField("assetName", StringType(), True),
+        StructField("data_asset_id", StringType(), True),
+        StructField("asset_qualified_name", StringType(), True),
         StructField("dqName", StringType(), True),
         StructField("id", StringType(), True),
         StructField("description", StringType(), True),
@@ -97,47 +97,70 @@ def purview_dq_data_parser( spark, data, businessDomainName, dataProductName, as
         StructField("lastModifiedAtPurview", StringType(), True), 
         StructField("status", StringType(), True),
         StructField("comment", StringType(), True),
+        StructField("data_owner_name", StringType(), True),
+        StructField("data_steward_name", StringType(), True),
         StructField("isActive", StringType(), True),
         StructField("loadDateTime", TimestampType(), True), 
         StructField("startDateTime", TimestampType(), True), 
-        StructField("endDateTime", TimestampType(), True), 
-
+        StructField("endDateTime", TimestampType(), True)
     ])
 
-    dq_df = []
+    df = spark.createDataFrame(data, schema)
+    return df
 
-    for blob in data:
-        # if blob.get("status", "").lower() != "active":
-        #     continue
-        dq_data = {
-            "businessDomainName": businessDomainName,
-            "dataProductName": dataProductName,
-            "assetName": asset_name,
-            "dqName": blob.get("name"),
-            "id": blob.get("id"),
-            "description": blob.get("description"),
-            "SQLcondition": blob.get("typeProperties", {}).get("condition"),
-            "columns": ", ".join(
-                                    [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])]
-                                ),
-            "dimension": blob.get("dimension"),
-            "threshold": 80,
-            "weight": 80,
-            "purviewStatus": blob.get("status"),
-            "createdAtPurview": blob.get("createdAt"),
-            "lastModifiedAtPurview": blob.get("lastModifiedAt"),
-            "status": "new",
-            "comment": None,
-            "isActive": "Y",
-            "loadDateTime": None,
-            "startDateTime": None,
-            "endDateTime": None
-        }
+def domain_extractor(domain_data, PURVIEW_ENDPOINT):
+    source_data = []
+    for data in domain_data:
+        governance_domain_id = data.get("governance_domain_id")
+        governance_domain_name = data.get("governance_domain_name")
+        data_product_id = data.get("data_product_id")
+        data_product_name = data.get("data_product_name")
+        data_asset_id = data.get("data_asset_id")
+        data_asset_name = data.get("data_asset_name")
+        asset_qualified_name = data.get("asset_qualified_name")
 
-        dq_df.append(dq_data)
+        try:
+            url = f"{PURVIEW_ENDPOINT}/datagovernance/quality/business-domains/{governance_domain_id}/data-products/{data_product_id}/data-assets/{data_asset_id}/rules?api-version=2025-09-01-preview"
 
-    spark_df = spark.createDataFrame(dq_df, schema=schema)
-    return spark_df
+            response = requests.get(url, headers=get_headers())
+            data = response.json()
+            for blob in data:
+                dq_data = {
+                    "businessDomainName": governance_domain_name,
+                    "governance_domain_id": governance_domain_id,
+                    "dataProductName": data_product_name,
+                    "data_product_id": data_product_id,
+                    "assetName": data_asset_name,
+                    "data_asset_id":data_asset_id,
+                    "asset_qualified_name":asset_qualified_name,
+                    "dqName": blob.get("name"),
+                    "id": blob.get("id"),
+                    "description": blob.get("description"),
+                    "SQLcondition": blob.get("typeProperties", {}).get("condition"),
+                    "columns": ", ".join(
+                                            [x.get("value") for x in blob.get("typeProperties", {}).get("columns", [])]
+                                        ),
+                    "dimension": blob.get("dimension"),
+                    "threshold": 80,
+                    "weight": 80,
+                    "purviewStatus": blob.get("status"),
+                    "createdAtPurview": blob.get("createdAt"),
+                    "lastModifiedAtPurview": blob.get("lastModifiedAt"),
+                    "status": "new",
+                    "comment": None,
+                    "data_owner_name": None,
+                    "data_steward_name": None,
+                    "isActive": "Y",
+                    "loadDateTime": None,
+                    "startDateTime": None,
+                    "endDateTime": None
+                }
+
+                source_data.append(dq_data)
+        except Exception as e:
+            print(f"Error: {e}")
+    return source_data  
+
 
 def dq_master_loader(spark, spark_df, table_path):
     ts = from_utc_timestamp(current_timestamp(), "Asia/Dubai")
@@ -158,21 +181,7 @@ def dq_master_loader(spark, spark_df, table_path):
                 .format("delta") \
                 .mode("append") \
                 .saveAsTable(table_path)
-            
-            spark.sql("SELECT 1").collect()
-
-            # Allow commit propagation
-            time.sleep(3)
-
-            # Ensure table ready
-            spark.table(table_path).limit(1).collect()
-
-            # Actual query
-            df = spark.table(table_path).filter("isActive = 'Y'").limit(100)
-
-            result = [row.asDict(recursive=True) for row in df.collect()]
-            return result
-                    
+                              
     else:
         
         delta_table = DeltaTable.forName(spark, table_path)
@@ -211,8 +220,12 @@ def dq_master_loader(spark, spark_df, table_path):
         ).whenNotMatchedInsert(
             values={
                 "businessDomainName": "s.businessDomainName",
+                "governance_domain_id": "s.governance_domain_id",
                 "dataProductName": "s.dataProductName",
+                "data_product_id": "s.data_product_id",
                 "assetName": "s.assetName",
+                "data_asset_id": "s.data_asset_id",
+                "asset_qualified_name" : "s.asset_qualified_name",
                 "dqName": "s.dqName",
                 "id": "s.id",
                 "description": "s.description",
@@ -226,62 +239,26 @@ def dq_master_loader(spark, spark_df, table_path):
                 "lastModifiedAtPurview": "s.lastModifiedAtPurview",
                 "status": "s.status",
                 "comment": "s.comment",
+                "data_owner_name": "s.data_owner_name",
+                "data_steward_name": "s.data_steward_name",
                 "isActive": "s.isActive",
                 "loadDateTime": "s.loadDateTime",
                 "startDateTime":"s.startDateTime",
                 "endDateTime": "s.endDateTime"
             }
         ).execute()
-
-        spark.sql("SELECT 1").collect()
-
-        # Allow commit propagation
-        time.sleep(3)
-
-        # Ensure table ready
-        spark.table(table_path).limit(1).collect()
-
-        # Actual query
-        df = spark.table(table_path).filter("isActive = 'Y'").limit(100)
-
-        result = [row.asDict(recursive=True) for row in df.collect()]
-        return result
     
-def powerapp_dq_data_parser( spark, data):
-
-    schema = StructType([
-        StructField("businessDomainName", StringType(), True),
-        StructField("dataProductName", StringType(), True),
-        StructField("assetName", StringType(), True),
-        StructField("dqName", StringType(), True),
-        StructField("id", StringType(), True),
-        StructField("description", StringType(), True),
-        StructField("SQLcondition", StringType(), True),
-        StructField("columns", StringType(), True),
-        StructField("dimension", StringType(), True),
-        StructField("threshold", IntegerType(), True),  
-        StructField("weight", IntegerType(), True),      
-        StructField("purviewStatus", StringType(), True),
-        StructField("createdAtPurview", StringType(), True),   
-        StructField("lastModifiedAtPurview", StringType(), True), 
-        StructField("status", StringType(), True),
-        StructField("comment", StringType(), True),
-        StructField("isActive", StringType(), True),
-        StructField("loadDateTime", TimestampType(), True), 
-        StructField("startDateTime", TimestampType(), True), 
-        StructField("endDateTime", TimestampType(), True), 
-
-    ])
-
+def powerapp_dq_data_parser(data):
     dq_df = []
-
     for blob in data:
-        # if blob.get("status", "").lower() != "active":
-        #     continue
         dq_data = {
             "businessDomainName": blob.get("businessDomainName"),
+            "governance_domain_id": blob.get("governance_domain_id"),
             "dataProductName": blob.get("dataProductName"),
+            "data_product_id": blob.get("data_product_id"),
             "assetName": blob.get("assetName"),
+            "data_asset_id": blob.get("data_asset_id"),
+            "asset_qualified_name" : blob.get("asset_qualified_name"),
             "dqName": blob.get("dqName"),
             "id": blob.get("id"),
             "description": blob.get("description"),
@@ -295,6 +272,8 @@ def powerapp_dq_data_parser( spark, data):
             "lastModifiedAtPurview": blob.get("lastModifiedAtPurview"),
             "status": blob.get("status"),
             "comment": blob.get("comment"),
+            "data_owner_name": blob.get("data_owner_name"),
+            "data_steward_name": blob.get("data_steward_name"),
             "isActive": blob.get("isActive"),
             "loadDateTime": parse_datetime(blob.get("loadDateTime")),
             "startDateTime": parse_datetime(blob.get("startDateTime")),
@@ -303,8 +282,7 @@ def powerapp_dq_data_parser( spark, data):
 
         dq_df.append(dq_data)
 
-    spark_df = spark.createDataFrame(dq_df, schema=schema)
-    return spark_df
+    return dq_df
 
 def dq_master_updater(spark, spark_df, table_path):
         
@@ -345,8 +323,12 @@ def dq_master_updater(spark, spark_df, table_path):
         ).whenNotMatchedInsert(
             values={
                 "businessDomainName": "s.businessDomainName",
+                "governance_domain_id": "s.governance_domain_id",
                 "dataProductName": "s.dataProductName",
+                "data_product_id": "s.data_product_id",
                 "assetName": "s.assetName",
+                "data_asset_id": "s.data_asset_id",
+                "asset_qualified_name" : "s.asset_qualified_name",
                 "dqName": "s.dqName",
                 "id": "s.id",
                 "description": "s.description",
@@ -360,6 +342,8 @@ def dq_master_updater(spark, spark_df, table_path):
                 "lastModifiedAtPurview": "s.lastModifiedAtPurview",
                 "status": "s.status",
                 "comment": "s.comment",
+                "data_owner_name": "s.data_owner_name",
+                "data_steward_name": "s.data_steward_name",
                 "isActive": "s.isActive",
                 "loadDateTime": "s.loadDateTime",
                 "startDateTime":"s.startDateTime",
@@ -406,61 +390,45 @@ def get_headers():
 # =========================
 # PURVIEW API CALL
 # =========================
+@app.route("/sync", methods=["GET"])
+def sync_purview():
+    try:
+        domain_data = read_json_file()
+        data_extract = domain_extractor(domain_data, PURVIEW_ENDPOINT)
+        domain_df = structured_data(spark, data_extract)
+        dq_master_loader(spark, domain_df, table_path)
+        return {"status":"purview synced with databricks successfully!", "check_count":len(data_extract)}
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
+
+
+
 @app.route("/purview", methods=["GET"])
 def call_purview():
-    global temp ###########VERY DANGER APPROACH########
     try:
-        url = f"{PURVIEW_ENDPOINT}/datagovernance/quality/business-domains/{businessDomainId}/data-products/{dataProductId}/data-assets/{asset_id}/rules?api-version=2025-09-01-preview"
+        spark.sql("SELECT 1").collect()
 
-        response = requests.get(url, headers=get_headers())
+        # Allow commit propagation
+        time.sleep(3)
 
-        # Retry once if token expired
-        if response.status_code == 401:
-            app.logger.info("Token expired, retrying with fresh token...")
-            response = requests.get(url, headers=get_headers())
+        # Ensure table ready
+        spark.table(table_path).limit(1).collect()
 
+        # Actual query
+        df = spark.table(table_path).filter("isActive = 'Y'").limit(100)
 
-        if response.status_code == 200:
-                temp = [] ###########VERY DANGER APPROACH########
-                data = response.json()
-                temp = data ###########VERY DANGER APPROACH########
-                try:
-                    spark_df = purview_dq_data_parser(spark, data, businessDomainName, dataProductName, asset_name)
-                    result = dq_master_loader(spark, spark_df, table_path)
-                    return jsonify(result)
-                except Exception as e:
-                    return {
-                        "status": "failed",
-                        "error": str(e)
-                    }
-        else:
-            try:
-                spark_df = purview_dq_data_parser(spark, temp, businessDomainName, dataProductName, asset_name)
-                result = dq_master_loader(spark, spark_df, table_path)
-                return jsonify(result)
-            except Exception as e:
-                return {
-                    "status": "failed",
-                    "error": str(e)
-                }
-        
+        result = [row.asDict(recursive=True) for row in df.collect()]
+
+        return jsonify(result)
 
     except Exception as e:
-        return jsonify({
-            "error": str(e),
-            "message": "Authentication or API call failed"
-        }), 500
-
-
-# @app.route("/dqcheck/owner", methods=["POST"])
-# def dqcheck_update():
-#     data = request.json
-#     try:
-#         spark_df = powerapp_dq_data_parser(spark, data)
-#         dq_master_updater(spark, spark_df, table_path)
-#         return {"status": "success"}
-#     except:
-#         return {"status": "failes"}
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
 
 
 @app.route("/dqcheck/owner", methods=["POST"])
@@ -474,10 +442,9 @@ def dqcheck_update():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        spark_df = powerapp_dq_data_parser(spark, data)
-
+        powerapps_data = powerapp_dq_data_parser(spark, data)
+        spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
-   
         spark_df = spark_df.withColumn(
             "loadDateTime",
             to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
@@ -507,10 +474,9 @@ def dqcheck_approve():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        spark_df = powerapp_dq_data_parser(spark, data)
-
+        powerapps_data = powerapp_dq_data_parser(spark, data)
+        spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
-   
         spark_df = spark_df.withColumn(
             "loadDateTime",
             to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
@@ -539,10 +505,9 @@ def dqcheck_reject():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        spark_df = powerapp_dq_data_parser(spark, data)
-
+        powerapps_data = powerapp_dq_data_parser(spark, data)
+        spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
-   
         spark_df = spark_df.withColumn(
             "loadDateTime",
             to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
