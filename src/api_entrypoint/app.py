@@ -495,6 +495,70 @@ def dqcheck_update():
         return {"status": "failed", "error": str(e)}, 500
     
 
+
+@app.route("/approve", methods=["POST"])
+def dqcheck_update():
+    try:
+        data = request.get_json(force=True)
+
+        if isinstance(data, dict):
+            data = data.get("data", [])
+
+        if not data:
+            return {"status": "failed", "error": "Empty payload"}, 400
+
+        spark_df = powerapp_dq_data_parser(spark, data)
+
+        # Fix timestamps
+   
+        spark_df = spark_df.withColumn(
+            "loadDateTime",
+            to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        ).withColumn(
+            "startDateTime",
+            to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        )
+
+        dq_master_updater(spark, spark_df, table_path)
+
+        return {"status": "success", "count": len(data)}
+
+    except Exception as e:
+        app.logger.error(str(e))
+        return {"status": "failed", "error": str(e)}, 500
+    
+
+@app.route("/reject", methods=["POST"])
+def dqcheck_update():
+    try:
+        data = request.get_json(force=True)
+
+        if isinstance(data, dict):
+            data = data.get("data", [])
+
+        if not data:
+            return {"status": "failed", "error": "Empty payload"}, 400
+
+        spark_df = powerapp_dq_data_parser(spark, data)
+
+        # Fix timestamps
+   
+        spark_df = spark_df.withColumn(
+            "loadDateTime",
+            to_timestamp("loadDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        ).withColumn(
+            "startDateTime",
+            to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
+        )
+
+        dq_master_updater(spark, spark_df, table_path)
+
+        return {"status": "success", "count": len(data)}
+
+    except Exception as e:
+        app.logger.error(str(e))
+        return {"status": "failed", "error": str(e)}, 500
+
 @app.route("/databricks", methods=["GET"])
 def call_databricks():
     try:
