@@ -33,14 +33,12 @@ def init_spark():
         ).getOrCreate()
 
 
-table_path = "workspace.dq_items.dq_rule_master_test"
+table_path = "workspace.dq_items.dq_rule_status_log"
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
 abu_dhabi_tz = ZoneInfo("Asia/Dubai")
 formatted = datetime.now(abu_dhabi_tz)
 auth_initialized = False
-json_path = "governance_domains\service_now_foundational.json"
-temp = []
 
 # =========================
 # TOKEN CACHE (PERSISTENT)
