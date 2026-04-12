@@ -497,7 +497,7 @@ def dqcheck_update():
 
 
 @app.route("/approve", methods=["POST"])
-def dqcheck_update():
+def dqcheck_approve():
     try:
         data = request.get_json(force=True)
 
@@ -529,7 +529,7 @@ def dqcheck_update():
     
 
 @app.route("/reject", methods=["POST"])
-def dqcheck_update():
+def dqcheck_reject():
     try:
         data = request.get_json(force=True)
 
