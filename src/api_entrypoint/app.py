@@ -440,7 +440,7 @@ def dqcheck_update():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        powerapps_data = powerapp_dq_data_parser(spark, data)
+        powerapps_data = powerapp_dq_data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
         spark_df = spark_df.withColumn(
@@ -472,7 +472,7 @@ def dqcheck_approve():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        powerapps_data = powerapp_dq_data_parser(spark, data)
+        powerapps_data = powerapp_dq_data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
         spark_df = spark_df.withColumn(
@@ -503,7 +503,7 @@ def dqcheck_reject():
         if not data:
             return {"status": "failed", "error": "Empty payload"}, 400
 
-        powerapps_data = powerapp_dq_data_parser(spark, data)
+        powerapps_data = powerapp_dq_data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
         # Fix timestamps
         spark_df = spark_df.withColumn(
