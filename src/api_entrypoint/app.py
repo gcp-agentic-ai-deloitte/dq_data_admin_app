@@ -446,14 +446,9 @@ def load_dq_master(spark, target_path, table_path):
             CURRENT_TIMESTAMP(),
             NULL,
             TRUE
-            FROM workspace.dq_items.dq_rule_status_log
+            FROM {table_path}
             WHERE status = 'approved'
-            AND isActive = 'Y';
-
-
-            select * FROM {table_path}
-            WHERE status = 'approved'
-
+            AND isActive = 'Y'
     """)
 
 # =========================
