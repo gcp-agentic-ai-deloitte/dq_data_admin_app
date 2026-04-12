@@ -34,6 +34,7 @@ def init_spark():
 
 
 table_path = "workspace.dq_items.dq_rule_status_log"
+target_path = "workspace.dq_items.dq_master"
 PURVIEW_ENDPOINT = "https://adgov-datagovernance-purview.purview.azure.com"
 SCOPE = "https://purview.azure.net/.default"
 abu_dhabi_tz = ZoneInfo("Asia/Dubai")
@@ -282,7 +283,7 @@ def powerapp_dq_data_parser(data):
 
     return dq_df
 
-def dq_master_updater(spark, spark_df, table_path):
+def dq_rule_log_updater(spark, spark_df, table_path):
         
         delta_table = DeltaTable.forName(spark, table_path)
 
@@ -385,6 +386,76 @@ def get_headers():
         "Content-Type": "application/json"
     }
 
+
+def load_dq_master(spark, target_path, table_path):
+    spark.sql(
+        f"""TRUNCATE TABLE {target_path}
+        """
+    )
+    spark.sql(f"""
+            INSERT INTO {target_path} (
+            dq_master_id,
+            governance_domain_name,
+            data_product_id,
+            data_product_name,
+            data_asset_id,
+            data_asset_name,
+            asset_qualified_name,
+            column_name,
+            column_datatype,
+            dq_rule_id,
+            dq_rule_name,
+            dq_rule_description,
+            dq_rule_dimension,
+            dq_rule_type,
+            dq_rule_expression,
+            dq_rule_status,
+            rule_threshold_pct,
+            data_owner_name,
+            data_steward_name,
+            is_active,
+            rule_weightage,
+            hash_diff,
+            effective_start_ts,
+            effective_end_ts,
+            is_current
+            )
+            SELECT
+            ROW_NUMBER() OVER (ORDER BY id) AS dq_master_id,
+            CAST(businessDomainName AS STRING),
+            CAST(data_product_id AS STRING),
+            CAST(dataProductName AS STRING),
+            CAST(data_asset_id AS STRING),
+            CAST(assetName AS STRING),
+            CAST(asset_qualified_name AS STRING),
+            CAST(columns AS STRING) AS column_name,            
+            NULL AS column_datatype,
+            CAST(id AS STRING),
+            CAST(dqName AS STRING),
+            CAST(description AS STRING),
+            CAST(dimension AS STRING),
+            'custom',
+            CAST(SQLcondition AS STRING),
+            CAST(status AS STRING),
+            CAST(threshold AS BIGINT),
+            CAST(data_owner_name AS STRING),
+            CAST(data_steward_name AS STRING),
+            CASE WHEN isActive = 'Y' THEN TRUE ELSE FALSE END, 
+            CAST(weight AS BIGINT),
+            NULL,
+            CURRENT_TIMESTAMP(),
+            NULL,
+            TRUE
+            FROM workspace.dq_items.dq_rule_status_log
+            WHERE status = 'approved'
+            AND isActive = 'Y';
+
+
+            select * FROM {table_path}
+            WHERE status = 'approved'
+
+    """)
+
 # =========================
 # PURVIEW API CALL
 # =========================
@@ -451,7 +522,7 @@ def dqcheck_update():
             to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
         )
 
-        dq_master_updater(spark, spark_df, table_path)
+        dq_rule_log_updater(spark, spark_df, table_path)
 
         return {"status": "success", "count": len(data)}
 
@@ -483,7 +554,8 @@ def dqcheck_approve():
             to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
         )
 
-        dq_master_updater(spark, spark_df, table_path)
+        dq_rule_log_updater(spark, spark_df, table_path)
+        load_dq_master(spark, target_path, table_path)
 
         return {"status": "success", "count": len(data)}
 
@@ -514,7 +586,7 @@ def dqcheck_reject():
             to_timestamp("startDateTime", "EEE, dd MMM yyyy HH:mm:ss z")
         )
 
-        dq_master_updater(spark, spark_df, table_path)
+        dq_rule_log_updater(spark, spark_df, table_path)
 
         return {"status": "success", "count": len(data)}
 
