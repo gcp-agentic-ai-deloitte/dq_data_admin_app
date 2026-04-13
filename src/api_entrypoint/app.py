@@ -27,8 +27,10 @@ logging.basicConfig(level=logging.INFO)
 
 def init_spark():
     return DatabricksSession.builder.remote(
-            host="https://dbc-32d63ff1-3673.cloud.databricks.com",
-            token="dapi9996c758f9e5dd3ccb5184be16b2c624",
+            # host="https://dbc-32d63ff1-3673.cloud.databricks.com",
+            # token="dapi9996c758f9e5dd3ccb5184be16b2c624",
+            host="https://adb-3394474440923341.1.azuredatabricks.net",
+            token="dapi71af0b256127eec265a98f8e06a36ed6",
             serverless=True
         ).getOrCreate()
 
@@ -462,6 +464,7 @@ def load_dq_master(spark, target_path, table_path):
 @app.route("/sync", methods=["GET"])
 def sync_purview():
     try:
+        time.sleep(3)
         domain_data = read_json_file()
         data_extract = domain_extractor(domain_data, PURVIEW_ENDPOINT)
         domain_df = structured_data(spark, data_extract)
