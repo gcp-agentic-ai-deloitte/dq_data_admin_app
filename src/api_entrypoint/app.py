@@ -30,7 +30,7 @@ def init_spark():
             # host="https://dbc-32d63ff1-3673.cloud.databricks.com",
             # token="dapi9996c758f9e5dd3ccb5184be16b2c624",
             host="https://adb-3394474440923341.1.azuredatabricks.net",
-            token="dapi71af0b256127eec265a98f8e06a36ed6",
+            token="dapi15b8b0f74b67e86627ec51c9af486c96",
             serverless=True
         ).getOrCreate()
 
