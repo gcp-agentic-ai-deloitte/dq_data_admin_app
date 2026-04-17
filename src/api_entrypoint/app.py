@@ -43,7 +43,8 @@ def structured_data(spark, data):
         StructField("data_steward_name", StringType(), True),
         StructField("is_active", BooleanType(), True),
         StructField("rule_weightage", LongType(), True),
-        StructField("is_current", BooleanType(), True)
+        StructField("is_current", BooleanType(), True),
+        StructField("comments", StringType(), True)
     ])
 
     df = spark.createDataFrame(data, schema)
@@ -71,7 +72,8 @@ def data_parser(data):
             "data_steward_name": blob.get("data_steward_name"),
             "is_active":blob.get("isActive"),
             "rule_weightage": blob.get("rule_weightage"),
-            "is_current":  blob.get("is_current") 
+            "is_current":  blob.get("is_current"),
+            "comments": blob.get("comments") 
         }
 
         dq_df.append(dq_data)
@@ -129,7 +131,7 @@ def call_purview():
         spark.sql("SELECT 1").collect()
         time.sleep(3)
         spark.table(table_path).limit(1).collect()
-        df = spark.table(table_path).filter("isActive = 'Y'").limit(300)
+        df = spark.table(table_path).filter("is_current = true").limit(300)
         result = [row.asDict(recursive=True) for row in df.collect()]
         return jsonify(result)
 
@@ -226,7 +228,7 @@ def call_databricks():
         spark.table(table_path).limit(1).collect()
 
         # Actual query
-        df = spark.table(table_path).filter("isActive = 'Y' AND status != 'new'").limit(100)
+        df = spark.table(table_path).filter("is_current = true AND dq_rule_status != 'new'").limit(300)
 
         result = [row.asDict(recursive=True) for row in df.collect()]
 
