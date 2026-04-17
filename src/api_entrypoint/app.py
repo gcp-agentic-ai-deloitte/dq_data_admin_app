@@ -4,14 +4,9 @@ from databricks.connect import DatabricksSession
 from pyspark.sql.types import *
 from delta.tables import DeltaTable
 import time
-import logging
 
 
 app = Flask(__name__)
-
-# Enable logging
-logging.basicConfig(level=logging.INFO)
-
 
 def init_spark():
     return DatabricksSession.builder.remote(
@@ -21,7 +16,7 @@ def init_spark():
         ).getOrCreate()
 
 
-table_path = "workspace.dq_items.dq_master_v2"
+dq_master_table = "workspace.dq_items.dq_master_v2"
     
 
 def structured_data(spark, data):
@@ -81,9 +76,9 @@ def data_parser(data):
     return dq_df
 
 
-def dq_master_updt(spark, spark_df, table_path):
+def dq_master_updt(spark, spark_df, dq_master_table):
 
-    delta_table = DeltaTable.forName(spark, table_path)
+    delta_table = DeltaTable.forName(spark, dq_master_table)
 
     target = delta_table.alias("t")
     source = spark_df.alias("s")
@@ -130,8 +125,8 @@ def call_purview():
     try:
         spark.sql("SELECT 1").collect()
         time.sleep(3)
-        spark.table(table_path).limit(1).collect()
-        df = spark.table(table_path).filter("is_current = true").limit(300)
+        spark.table(dq_master_table).limit(1).collect()
+        df = spark.table(dq_master_table).filter("is_current = true").limit(300)
         result = [row.asDict(recursive=True) for row in df.collect()]
         return jsonify(result)
 
@@ -155,7 +150,7 @@ def dqcheck_update():
 
         powerapps_data = data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
-        dq_master_updt(spark, spark_df, table_path)
+        dq_master_updt(spark, spark_df, dq_master_table)
 
         return {"status": "success", "count": len(data)}
 
@@ -178,7 +173,7 @@ def dqcheck_approve():
 
         powerapps_data = data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
-        dq_master_updt(spark, spark_df, table_path)
+        dq_master_updt(spark, spark_df, dq_master_table)
 
         return {"status": "success", "count": len(data)}
 
@@ -204,7 +199,7 @@ def dqcheck_reject():
 
         powerapps_data = data_parser(data)
         spark_df = structured_data(spark, powerapps_data)
-        dq_master_updt(spark, spark_df, table_path)
+        dq_master_updt(spark, spark_df, dq_master_table)
 
         return {"status": "success", "count": len(data)}
 
@@ -220,18 +215,10 @@ def dqcheck_reject():
 def call_databricks():
     try:
         spark.sql("SELECT 1").collect()
-
-        # Allow commit propagation
         time.sleep(3)
-
-        # Ensure table ready
-        spark.table(table_path).limit(1).collect()
-
-        # Actual query
-        df = spark.table(table_path).filter("is_current = true AND dq_rule_status != 'new'").limit(300)
-
+        spark.table(dq_master_table).limit(1).collect()
+        df = spark.table(dq_master_table).filter("is_current = true AND dq_rule_status != 'new'").limit(300)
         result = [row.asDict(recursive=True) for row in df.collect()]
-
         return jsonify(result)
 
     except Exception as e:
