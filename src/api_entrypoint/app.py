@@ -161,7 +161,7 @@ spark = init_spark()
 @app.route("/purview", methods=["GET"])
 def call_purview():
     try:
-        condition = "is_current = true"
+        condition = "b.is_current = true"
         time.sleep(3)
         df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
         # result = [row.asDict(recursive=True) for row in df.collect()]
@@ -252,7 +252,7 @@ def dqcheck_reject():
 @app.route("/databricks", methods=["GET"])
 def call_databricks():
     try:
-        condition = "is_current = true AND dq_rule_status != 'new'"
+        condition = "b.is_current = true AND b.dq_rule_status != 'new'"
         time.sleep(3)
         df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
         # result = [row.asDict(recursive=True) for row in df.collect()]
