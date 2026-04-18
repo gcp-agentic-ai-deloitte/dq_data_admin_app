@@ -164,7 +164,6 @@ def call_purview():
         condition = "b.is_current = true"
         time.sleep(3)
         df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
-        # result = [row.asDict(recursive=True) for row in df.collect()]
         result = df.limit(1000).toPandas().to_dict(orient="records")
         return jsonify(result)
 
@@ -255,7 +254,6 @@ def call_databricks():
         condition = "b.is_current = true AND b.dq_rule_status != 'new'"
         time.sleep(3)
         df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
-        # result = [row.asDict(recursive=True) for row in df.collect()]
         result = df.limit(1000).toPandas().to_dict(orient="records")
         return jsonify(result)
 
