@@ -17,6 +17,9 @@ def init_spark():
 
 
 dq_master_table = "workspace.dq_items.dq_master_v2"
+purview_vertical_map_table = "workspace.dq_items.purview_vertical_map"
+dq_execution_results = "workspace.dq_items.dq_execution_results"
+
     
 
 def structured_data(spark, data):
@@ -119,6 +122,38 @@ def dq_master_updt(spark, spark_df, dq_master_table):
 
 
 spark = init_spark()
+
+@app.route("/vertical", methods=["GET"])
+def call_vertical_map():
+    try:
+        spark.sql("SELECT 1").collect()
+        time.sleep(3)
+        spark.table(purview_vertical_map_table).limit(1).collect()
+        df = spark.table(purview_vertical_map_table).limit(300)
+        result = [row.asDict(recursive=True) for row in df.collect()]
+        return jsonify(result)
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
+
+@app.route("/execution_results", methods=["GET"])
+def call_vertical_map():
+    try:
+        spark.sql("SELECT 1").collect()
+        time.sleep(3)
+        spark.table(dq_execution_results).limit(1).collect()
+        df = spark.table(dq_execution_results).limit(300)
+        result = [row.asDict(recursive=True) for row in df.collect()]
+        return jsonify(result)
+
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
 
 @app.route("/purview", methods=["GET"])
 def call_purview():
