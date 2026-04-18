@@ -8,19 +8,22 @@ import time
 
 app = Flask(__name__)
 
-def init_spark():
-    return DatabricksSession.builder.remote(
-            host="https://dbc-32d63ff1-3673.cloud.databricks.com",
-            token="dapi9996c758f9e5dd3ccb5184be16b2c624",
-            serverless=True
-        ).getOrCreate()
-
+spark = None
 
 dq_master_table = "workspace.dq_items.dq_master_v2"
 purview_vertical_map_table = "workspace.dq_items.purview_vertical_map"
 dq_execution_results = "workspace.dq_items.dq_execution_results"
 
-    
+
+def init_spark():
+    global spark
+    if spark is None:
+        spark = DatabricksSession.builder.remote(
+                host="https://dbc-32d63ff1-3673.cloud.databricks.com",
+                token="dapi9996c758f9e5dd3ccb5184be16b2c624",
+                serverless=True
+            ).getOrCreate()
+    return spark
 
 def structured_data(spark, data):
     schema = StructType([
@@ -120,49 +123,49 @@ def dq_master_updt(spark, spark_df, dq_master_table):
     ) \
     .execute()
 
+def dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition):
+    df = spark.sql(f"""
+    SELECT 
+        a.vertical_name,
+        b.governance_domain_name,
+        b.data_product_name,
+        b.data_asset_name,
+        b.column_name,
+        b.column_datatype,
+        b.dq_rule_id,
+        b.dq_rule_name,
+        b.dq_rule_description,
+        b.dq_rule_dimension,
+        b.dq_rule_type,
+        b.dq_rule_expression,
+        b.dq_rule_status,
+        b.rule_threshold_pct,
+        b.data_owner_name,
+        b.data_steward_name,
+        b.is_active,
+        b.rule_weightage,
+        b.is_current,
+        b.comments,
+        c.score,
+        c.dq_last_execution_date
+    FROM {dq_master_table} b
+    LEFT JOIN {purview_vertical_map_table} a ON b.dq_rule_id  = a.dq_rule_id 
+    LEFT JOIN {dq_execution_results} c ON b.dq_rule_id  = c.dq_rule_id 
+    WHERE {condition}
+    """)
+    return df
+
 
 spark = init_spark()
-
-@app.route("/vertical", methods=["GET"])
-def call_vertical_map():
-    try:
-        spark.sql("SELECT 1").collect()
-        time.sleep(3)
-        spark.table(purview_vertical_map_table).limit(1).collect()
-        df = spark.table(purview_vertical_map_table).limit(300)
-        result = [row.asDict(recursive=True) for row in df.collect()]
-        return jsonify(result)
-
-    except Exception as e:
-        return {
-            "status": "failed",
-            "error": str(e)
-        }
-
-@app.route("/execution_results", methods=["GET"])
-def call_vertical_map():
-    try:
-        spark.sql("SELECT 1").collect()
-        time.sleep(3)
-        spark.table(dq_execution_results).limit(1).collect()
-        df = spark.table(dq_execution_results).limit(300)
-        result = [row.asDict(recursive=True) for row in df.collect()]
-        return jsonify(result)
-
-    except Exception as e:
-        return {
-            "status": "failed",
-            "error": str(e)
-        }
 
 @app.route("/purview", methods=["GET"])
 def call_purview():
     try:
-        spark.sql("SELECT 1").collect()
+        condition = "is_current = true"
         time.sleep(3)
-        spark.table(dq_master_table).limit(1).collect()
-        df = spark.table(dq_master_table).filter("is_current = true").limit(300)
-        result = [row.asDict(recursive=True) for row in df.collect()]
+        df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
+        # result = [row.asDict(recursive=True) for row in df.collect()]
+        result = df.limit(1000).toJSON().collect()
         return jsonify(result)
 
     except Exception as e:
@@ -249,11 +252,11 @@ def dqcheck_reject():
 @app.route("/databricks", methods=["GET"])
 def call_databricks():
     try:
-        spark.sql("SELECT 1").collect()
+        condition = "is_current = true AND dq_rule_status != 'new'"
         time.sleep(3)
-        spark.table(dq_master_table).limit(1).collect()
-        df = spark.table(dq_master_table).filter("is_current = true AND dq_rule_status != 'new'").limit(300)
-        result = [row.asDict(recursive=True) for row in df.collect()]
+        df = dq_data_blob(dq_master_table,purview_vertical_map_table,dq_execution_results, condition)
+        # result = [row.asDict(recursive=True) for row in df.collect()]
+        result = df.limit(1000).toJSON().collect()
         return jsonify(result)
 
     except Exception as e:
